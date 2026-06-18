@@ -166,7 +166,7 @@ dependencies:
   animated_splash_plus: ^1.0.3 # 启动动画
   flutter_exit_app: ^2.0.0 # 退出应用
   move_to_desktop: ^0.0.2 # 移动到桌面
-  package_info_plus: ^10.1.0 # 应用包信息
+  package_info_plus: 8.3.1 # 应用包信息
   stop_watch_timer: ^3.2.2 # 计时器
   floating: ^6.0.0 # 悬浮窗
   flutter_floating: ^2.0.1 # 悬浮窗
