@@ -1,0 +1,18 @@
+targets:
+  $default:
+    builders:
+      protoc_builder:
+        options:
+          protobuf_version: "3.19.1"
+          protoc_plugin_version: "20.0.1"
+          root_dir: "proto/"
+          proto_paths:
+            - "proto/"
+          out_dir: "lib/src/generated"
+          grpc: true
+          use_installed_protoc: false
+          precompile_protoc_plugin: true
+      drift_dev:drift_builder:
+        enabled: true
+        generate_for:
+          - lib/**.dart
