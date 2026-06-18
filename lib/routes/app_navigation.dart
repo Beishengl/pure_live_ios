@@ -50,7 +50,7 @@ class BackButtonObserver extends RouteObserver<PageRoute<dynamic>> {
         livePlayController.success.value = false;
 
         final manager = GlobalPlayerService.instance.playerManager;
-        if (SettingsService.to.player.floatPlay.v) {
+        if (SettingsService.to.player.floatPlay.v && !Platform.isIOS) {
           Future.delayed(Duration(milliseconds: 200), () {
             manager.showAppFloating();
           });

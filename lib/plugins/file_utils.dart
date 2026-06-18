@@ -51,7 +51,7 @@ class FileUtils {
 
   /// 请求外部存储管理权限
   static Future<bool> requestStoragePermission() async {
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (Platform.isAndroid) {
       if (await Permission.manageExternalStorage.isDenied) {
         final status = await Permission.manageExternalStorage.request();
         return status.isGranted;

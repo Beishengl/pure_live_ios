@@ -36,8 +36,13 @@ jobs:
           xcodebuild -version
           pod --version
 
+      - name: Disable iOS Swift Package Manager
+        run: flutter config --no-enable-swift-package-manager
+
       - name: Install Flutter dependencies
-        run: flutter pub get
+        run: |
+          rm -rf ios/Pods ios/Podfile.lock
+          flutter pub get
 
       - name: Build iOS app without Apple signing
         shell: bash
