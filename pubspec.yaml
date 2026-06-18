@@ -109,7 +109,7 @@ dependencies:
       url: https://github.com/liuchuancong/screen_retriever.git
       path: ./packages/screen_retriever
       ref: main
-  win32: ^6.3.0 # Windows系统API
+  win32: ^5.11.0 # Windows系统API
   android_intent_plus: ^6.0.0
   fullscreen_window: ^1.2.0
 
