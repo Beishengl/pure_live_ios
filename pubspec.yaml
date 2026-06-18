@@ -119,7 +119,7 @@ dependencies:
   wakelock_plus: ^1.4.0 # 保持屏幕常亮
   battery_plus: ^7.0.0 # 电池状态获取
   permission_handler: ^12.0.1 # 权限管理
-  device_info_plus: ^13.1.0 # 设备信息
+  device_info_plus: 11.5.0 # 设备信息
   auto_orientation_v2: ^2.3.6 # 屏幕自动旋转
   mobile_scanner: ^7.1.3 # 二维码扫描
 
