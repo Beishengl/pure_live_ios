@@ -45,56 +45,6 @@ jobs:
           rm -rf "$HOME"/.pub-cache/hosted/pub.dev/device_info_plus-*
           flutter pub get
 
-      - name: Patch device_info_plus iOS SDK compatibility
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Applying device_info_plus isiOSAppOnVision compatibility patch v4"
-          plugin_count=0
-          while IFS= read -r plugin_file; do
-            plugin_count=$((plugin_count + 1))
-            echo "Patching $plugin_file"
-            PLUGIN_FILE="$plugin_file" python3 - <<'PY'
-          import os
-          import re
-          from pathlib import Path
-
-          path = Path(os.environ['PLUGIN_FILE'])
-          text = path.read_text()
-
-          # Replace the whole declaration in a fresh pub-cache file.
-          text = re.sub(
-              r'NSNumber\s+\*isiOSAppOnVision\s*=\s*.*?;',
-              'NSNumber *isiOSAppOnVision = @NO;',
-              text,
-              flags=re.S,
-          )
-
-          # Also handle already-corrupted cached files from earlier failed patch attempts.
-          text = re.sub(r'^\s*isiOSAppOnVision\]\];\s*\n?', '', text, flags=re.M)
-          text = re.sub(r'^\s*isiOSAppOnVision\]\);\s*\n?', '', text, flags=re.M)
-
-          # Replace any remaining direct API calls, regardless of Objective-C syntax style.
-          text = re.sub(r'\[NSProcessInfo processInfo\]\s*\.\s*isiOSAppOnVision', 'NO', text)
-          text = re.sub(r'\[\[NSProcessInfo processInfo\]\s+isiOSAppOnVision\]', 'NO', text)
-          text = re.sub(r'\[NSProcessInfo\.processInfo\s+isiOSAppOnVision\]', 'NO', text)
-
-          path.write_text(text)
-          PY
-          done < <(find "$HOME/.pub-cache" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f)
-
-          if [ "$plugin_count" -eq 0 ]; then
-            echo "device_info_plus iOS plugin source was not found"
-            exit 1
-          fi
-
-          residual=$(find "$HOME/.pub-cache" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f -exec grep -HnE "NSProcessInfo.*isiOSAppOnVision|isiOSAppOnVision\]\]|isiOSAppOnVision\]\)" {} \; || true)
-          if [ -n "$residual" ]; then
-            echo "$residual"
-            echo "device_info_plus iOS Vision API patch did not fully apply"
-            exit 1
-          fi
-
       - name: Build iOS app without Apple signing
         shell: bash
         run: |
