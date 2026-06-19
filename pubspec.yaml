@@ -119,7 +119,7 @@ dependencies:
   wakelock_plus: ^1.4.0 # 保持屏幕常亮
   battery_plus: ^7.0.0 # 电池状态获取
   permission_handler: ^12.0.1 # 权限管理
-  device_info_plus: 11.5.0 # 设备信息
+  device_info_plus: 13.0.0 # 设备信息
   auto_orientation_v2: ^2.3.6 # 屏幕自动旋转
   mobile_scanner: ^7.1.3 # 二维码扫描
 
@@ -176,8 +176,6 @@ dependencies:
   app_links: 7.0.0
 # 依赖覆盖（强制指定版本）
 dependency_overrides:
-  win32: ^6.3.0
-  win32_registry: ^3.0.3
   wakelock_plus: ^1.4.0
   app_links: 7.0.0
   meta: 1.18.0
