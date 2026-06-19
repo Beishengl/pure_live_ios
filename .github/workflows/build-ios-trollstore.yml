@@ -49,18 +49,21 @@ jobs:
         run: |
           set -euo pipefail
           echo "Applying device_info_plus isiOSAppOnVision compatibility patch v2"
-          mapfile -t plugin_files < <(find "$HOME/.pub-cache" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f)
-          if [ "${#plugin_files[@]}" -eq 0 ]; then
+          plugin_count=0
+          while IFS= read -r plugin_file; do
+            plugin_count=$((plugin_count + 1))
+            echo "Patching $plugin_file"
+            perl -0pi -e 's/\[NSProcessInfo processInfo\]\s*\.\s*isiOSAppOnVision/NO/g' "$plugin_file"
+          done < <(find "$HOME/.pub-cache" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f)
+
+          if [ "$plugin_count" -eq 0 ]; then
             echo "device_info_plus iOS plugin source was not found"
             exit 1
           fi
 
-          for plugin_file in "${plugin_files[@]}"; do
-            echo "Patching $plugin_file"
-            perl -0pi -e 's/\[NSProcessInfo processInfo\]\s*\.\s*isiOSAppOnVision/NO/g' "$plugin_file"
-          done
-
-          if grep -R "isiOSAppOnVision" "$HOME/.pub-cache/hosted/pub.dev/device_info_plus-"*/ios/device_info_plus/Sources/device_info_plus; then
+          residual=$(find "$HOME/.pub-cache" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f -exec grep -Hn "isiOSAppOnVision" {} \; || true)
+          if [ -n "$residual" ]; then
+            echo "$residual"
             echo "device_info_plus iOS Vision API patch did not fully apply"
             exit 1
           fi
