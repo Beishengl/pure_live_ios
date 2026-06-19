@@ -48,10 +48,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          plugin_file="$HOME/.pub-cache/hosted/pub.dev/device_info_plus-13.1.0/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m"
-          if [ -f "$plugin_file" ] && grep -q "isiOSAppOnVision" "$plugin_file"; then
-            perl -0pi -e 's/,\n\s*@"isiOSAppOnVision"\s*:\s*@\(\[NSProcessInfo processInfo\]\.isiOSAppOnVision\)//g' "$plugin_file"
-          fi
+          plugin_files=("$HOME"/.pub-cache/hosted/pub.dev/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m)
+          for plugin_file in "${plugin_files[@]}"; do
+            if [ -f "$plugin_file" ] && grep -q "isiOSAppOnVision" "$plugin_file"; then
+              perl -0pi -e 's/@\(\[NSProcessInfo processInfo\]\.isiOSAppOnVision\)/@(NO)/g' "$plugin_file"
+              grep -n "isiOSAppOnVision" "$plugin_file"
+            fi
+          done
 
       - name: Build iOS app without Apple signing
         shell: bash
