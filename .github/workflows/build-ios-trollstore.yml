@@ -48,12 +48,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Applying device_info_plus isiOSAppOnVision compatibility patch v2"
+          echo "Applying device_info_plus isiOSAppOnVision compatibility patch v3"
           plugin_count=0
           while IFS= read -r plugin_file; do
             plugin_count=$((plugin_count + 1))
             echo "Patching $plugin_file"
-            perl -0pi -e 's/\[NSProcessInfo processInfo\]\s*\.\s*isiOSAppOnVision/NO/g' "$plugin_file"
+            PLUGIN_FILE="$plugin_file" python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path(os.environ['PLUGIN_FILE'])
+          text = path.read_text()
+          text = re.sub(
+              r'NSNumber\s+\*isiOSAppOnVision\s*=\s*.*?;',
+              'NSNumber *isiOSAppOnVision = @NO;',
+              text,
+              flags=re.S,
+          )
+          text = re.sub(r'\[NSProcessInfo processInfo\]\s*\.\s*isiOSAppOnVision', 'NO', text)
+          text = re.sub(r'\[\[NSProcessInfo processInfo\]\s+isiOSAppOnVision\]', 'NO', text)
+          path.write_text(text)
+          PY
           done < <(find "$HOME/.pub-cache" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f)
 
           if [ "$plugin_count" -eq 0 ]; then
@@ -61,7 +77,7 @@ jobs:
             exit 1
           fi
 
-          residual=$(find "$HOME/.pub-cache" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f -exec grep -Hn "isiOSAppOnVision" {} \; || true)
+          residual=$(find "$HOME/.pub-cache" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f -exec grep -HnE "NSProcessInfo.*isiOSAppOnVision|isiOSAppOnVision\]\]" {} \; || true)
           if [ -n "$residual" ]; then
             echo "$residual"
             echo "device_info_plus iOS Vision API patch did not fully apply"
