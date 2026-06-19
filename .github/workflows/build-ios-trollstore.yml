@@ -44,6 +44,15 @@ jobs:
           rm -rf ios/Pods ios/Podfile.lock
           flutter pub get
 
+      - name: Patch device_info_plus iOS SDK compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          plugin_file="$HOME/.pub-cache/hosted/pub.dev/device_info_plus-13.1.0/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m"
+          if [ -f "$plugin_file" ] && grep -q "isiOSAppOnVision" "$plugin_file"; then
+            perl -0pi -e 's/,\n\s*@"isiOSAppOnVision"\s*:\s*@\(\[NSProcessInfo processInfo\]\.isiOSAppOnVision\)//g' "$plugin_file"
+          fi
+
       - name: Build iOS app without Apple signing
         shell: bash
         run: |
