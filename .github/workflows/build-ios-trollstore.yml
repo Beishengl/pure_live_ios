@@ -49,7 +49,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Applying device_info_plus iOS Vision API patch v6"
+          echo "Applying device_info_plus iOS Vision API patch v7"
 
           plugin_file=$(find "$HOME/.pub-cache" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f | head -n 1)
           if [ -z "$plugin_file" ]; then
@@ -58,8 +58,39 @@ jobs:
           fi
 
           echo "Patching $plugin_file"
-          perl -0pi -e 's/NSNumber\s+\*isiOSAppOnVision\s*=.*?;/NSNumber *isiOSAppOnVision = \@NO;/s' "$plugin_file"
-          perl -0pi -e 's/^\s*isiOSAppOnVision\]\];\s*\n?//mg; s/^\s*isiOSAppOnVision\]\);\s*\n?//mg; s/\[NSProcessInfo processInfo\]\s*\.\s*isiOSAppOnVision/NO/g; s/\[\[NSProcessInfo processInfo\]\s+isiOSAppOnVision\]/NO/g' "$plugin_file"
+          cat > /tmp/patch_device_info_plus.rb <<'RUBY'
+          path = ARGV.fetch(0)
+          output = []
+          skip_until_semicolon = false
+
+          File.readlines(path).each do |line|
+            if skip_until_semicolon
+              skip_until_semicolon = !line.include?(";")
+              next
+            end
+
+            if line.include?("NSNumber *isiOSAppOnVision")
+              indent = line[/^\s*/] || ""
+              output << "#{indent}NSNumber *isiOSAppOnVision = @NO;\n"
+              skip_until_semicolon = !line.include?(";")
+              next
+            end
+
+            stripped = line.strip
+            next if stripped == "isiOSAppOnVision]];"
+            next if stripped == "isiOSAppOnVision]);"
+            next if stripped == "isiOSAppOnVision]]);"
+
+            line = line.gsub("[NSProcessInfo processInfo].isiOSAppOnVision", "NO")
+            line = line.gsub("[[NSProcessInfo processInfo] isiOSAppOnVision]", "NO")
+            output << line
+          end
+
+          File.write(path, output.join)
+          RUBY
+          sed -i '' 's/^          //' /tmp/patch_device_info_plus.rb
+          ruby /tmp/patch_device_info_plus.rb "$plugin_file"
+
           grep -n "isiOSAppOnVision" "$plugin_file" || true
 
           if grep -nE 'NSProcessInfo.*isiOSAppOnVision|isiOSAppOnVision\]\]|isiOSAppOnVision\]\)' "$plugin_file"; then
