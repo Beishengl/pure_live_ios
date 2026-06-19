@@ -45,6 +45,60 @@ jobs:
           rm -rf "$HOME"/.pub-cache/hosted/pub.dev/device_info_plus-*
           flutter pub get
 
+      - name: Patch device_info_plus iOS Vision API
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Applying device_info_plus iOS Vision API patch v5"
+
+          plugin_file=$(find "$HOME/.pub-cache" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f | head -n 1)
+          if [ -z "$plugin_file" ]; then
+            echo "device_info_plus iOS source file was not found"
+            exit 1
+          fi
+
+          echo "Patching $plugin_file"
+          cat > /tmp/patch_device_info_plus.py <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ['PLUGIN_FILE'])
+          lines = path.read_text().splitlines(keepends=True)
+          patched = []
+          skip_until_semicolon = False
+
+          for line in lines:
+              stripped = line.strip()
+
+              if skip_until_semicolon:
+                  if ';' in line:
+                      skip_until_semicolon = False
+                  continue
+
+              if 'NSNumber *isiOSAppOnVision' in line:
+                  indent = line[: len(line) - len(line.lstrip())]
+                  patched.append(f'{indent}NSNumber *isiOSAppOnVision = @NO;\n')
+                  if ';' not in line:
+                      skip_until_semicolon = True
+                  continue
+
+              if stripped in {'isiOSAppOnVision]];', 'isiOSAppOnVision]);', 'isiOSAppOnVision]]);'}:
+                  continue
+
+              line = line.replace('[NSProcessInfo processInfo].isiOSAppOnVision', 'NO')
+              line = line.replace('[[NSProcessInfo processInfo] isiOSAppOnVision]', 'NO')
+              patched.append(line)
+
+          path.write_text(''.join(patched))
+          PY
+          sed -i '' 's/^          //' /tmp/patch_device_info_plus.py
+          PLUGIN_FILE="$plugin_file" python3 /tmp/patch_device_info_plus.py
+
+          if grep -nE 'NSProcessInfo.*isiOSAppOnVision|isiOSAppOnVision\]\]|isiOSAppOnVision\]\)' "$plugin_file"; then
+            echo "device_info_plus iOS Vision API patch did not fully apply"
+            exit 1
+          fi
+
       - name: Build iOS app without Apple signing
         shell: bash
         run: |
