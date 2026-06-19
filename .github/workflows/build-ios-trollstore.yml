@@ -48,13 +48,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          plugin_files=("$HOME"/.pub-cache/hosted/pub.dev/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m)
+          echo "Applying device_info_plus isiOSAppOnVision compatibility patch v2"
+          mapfile -t plugin_files < <(find "$HOME/.pub-cache" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f)
+          if [ "${#plugin_files[@]}" -eq 0 ]; then
+            echo "device_info_plus iOS plugin source was not found"
+            exit 1
+          fi
+
           for plugin_file in "${plugin_files[@]}"; do
-            if [ -f "$plugin_file" ] && grep -q "isiOSAppOnVision" "$plugin_file"; then
-              perl -0pi -e 's/@\(\[NSProcessInfo processInfo\]\.isiOSAppOnVision\)/@(NO)/g' "$plugin_file"
-              grep -n "isiOSAppOnVision" "$plugin_file"
-            fi
+            echo "Patching $plugin_file"
+            perl -0pi -e 's/\[NSProcessInfo processInfo\]\s*\.\s*isiOSAppOnVision/NO/g' "$plugin_file"
           done
+
+          if grep -R "isiOSAppOnVision" "$HOME/.pub-cache/hosted/pub.dev/device_info_plus-"*/ios/device_info_plus/Sources/device_info_plus; then
+            echo "device_info_plus iOS Vision API patch did not fully apply"
+            exit 1
+          fi
 
       - name: Build iOS app without Apple signing
         shell: bash
