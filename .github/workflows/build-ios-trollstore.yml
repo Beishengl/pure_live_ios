@@ -49,7 +49,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Applying device_info_plus iOS Vision API patch v8"
+          echo "Applying device_info_plus iOS Vision API patch v9"
 
           plugin_file=$(find "$HOME/.pub-cache" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f | head -n 1)
           if [ -z "$plugin_file" ]; then
@@ -101,6 +101,8 @@ jobs:
           RUBY
           sed -i '' 's/^          //' /tmp/patch_device_info_plus.rb
           ruby /tmp/patch_device_info_plus.rb "$plugin_file"
+
+          perl -ni -e 'print unless /^\s*isiOSAppOnVision\s*=/ || /NSProcessInfo.*isiOSAppOnVision/ || /isiOSAppOnVision\]\]/ || /isiOSAppOnVision\]\)/' "$plugin_file"
 
           grep -n "isiOSAppOnVision" "$plugin_file" || true
 
