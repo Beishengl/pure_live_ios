@@ -111,6 +111,14 @@ jobs:
             exit 1
           fi
 
+      - name: Install CocoaPods dependencies with verbose logs
+        shell: bash
+        working-directory: ios
+        run: |
+          set -euo pipefail
+          pod repo update --verbose
+          pod install --verbose
+
       - name: Build iOS app without Apple signing
         shell: bash
         run: |
@@ -121,6 +129,7 @@ jobs:
           if [ -n "${{ inputs.build_number }}" ]; then
             args+=(--build-number "${{ inputs.build_number }}")
           fi
+          args+=(--no-pub)
           flutter build "${args[@]}"
 
       - name: Ad-hoc sign app bundle
