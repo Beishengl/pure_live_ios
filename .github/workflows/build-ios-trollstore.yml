@@ -13,8 +13,12 @@ on:
 jobs:
   build-ios:
     name: Build iOS IPA for TrollStore
-    runs-on: macos-latest
-    timeout-minutes: 60
+    runs-on: macos-15
+    timeout-minutes: 180
+    env:
+      PUB_CACHE: ${{ github.workspace }}/.pub-cache
+      COCOAPODS_DISABLE_STATS: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
 
     steps:
       - name: Checkout
@@ -35,14 +39,39 @@ jobs:
           flutter --version
           xcodebuild -version
           pod --version
+          flutter --disable-analytics
 
       - name: Disable iOS Swift Package Manager
         run: flutter config --no-enable-swift-package-manager
 
+      - name: Cache Dart packages
+        uses: actions/cache@v4
+        with:
+          path: .pub-cache
+          key: ${{ runner.os }}-flutter-pub-${{ hashFiles('pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-pub-
+
+      - name: Cache CocoaPods downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/CocoaPods
+            ~/.cocoapods/repos
+          key: ${{ runner.os }}-cocoapods-${{ hashFiles('ios/Podfile', 'pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-cocoapods-
+
+      - name: Precache iOS artifacts
+        run: flutter precache --ios
+
       - name: Install Flutter dependencies
+        shell: bash
         run: |
-          rm -rf ios/Pods ios/Podfile.lock
-          rm -rf "$HOME"/.pub-cache/hosted/pub.dev/device_info_plus-*
+          set -euo pipefail
+          echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] Remove cached device_info_plus before pub get"
+          rm -rf "$PUB_CACHE"/hosted/pub.dev/device_info_plus-* "$HOME"/.pub-cache/hosted/pub.dev/device_info_plus-* 2>/dev/null || true
+          echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] Run flutter pub get"
           flutter pub get
 
       - name: Patch device_info_plus iOS Vision API
@@ -51,7 +80,10 @@ jobs:
           set -euo pipefail
           echo "Applying device_info_plus iOS Vision API patch v9"
 
-          plugin_file=$(find "$HOME/.pub-cache" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f | head -n 1)
+          search_roots=()
+          [ -d "$PUB_CACHE" ] && search_roots+=("$PUB_CACHE")
+          [ -d "$HOME/.pub-cache" ] && search_roots+=("$HOME/.pub-cache")
+          plugin_file=$(find "${search_roots[@]}" -path '*/device_info_plus-*/ios/device_info_plus/Sources/device_info_plus/FPPDeviceInfoPlusPlugin.m' -type f 2>/dev/null | head -n 1 || true)
           if [ -z "$plugin_file" ]; then
             echo "device_info_plus iOS source file was not found"
             exit 1
@@ -111,17 +143,38 @@ jobs:
             exit 1
           fi
 
-      - name: Install CocoaPods dependencies with verbose logs
+      - name: Clean install CocoaPods dependencies
         shell: bash
         working-directory: ios
+        timeout-minutes: 45
         run: |
           set -euo pipefail
+          log() { echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $*"; }
+
+          log "Remove stale Pods and Podfile.lock"
+          rm -rf Pods Podfile.lock
+
+          log "Show CocoaPods cache size"
+          du -sh "$HOME/Library/Caches/CocoaPods" "$HOME/.cocoapods/repos" 2>/dev/null || true
+
+          log "Update CocoaPods specs repo"
           pod repo update --verbose
+
+          log "Install Pods from fresh lock state"
           pod install --verbose
+
+          log "Installed Pods lock summary"
+          test -f Podfile.lock && sed -n '1,120p' Podfile.lock || true
+
+          log "CocoaPods install finished"
 
       - name: Build iOS app without Apple signing
         shell: bash
+        timeout-minutes: 150
         run: |
+          set -euo pipefail
+          log() { echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $*"; }
+
           args=(ios --release --no-codesign)
           if [ -n "${{ inputs.build_name }}" ]; then
             args+=(--build-name "${{ inputs.build_name }}")
@@ -130,7 +183,46 @@ jobs:
             args+=(--build-number "${{ inputs.build_number }}")
           fi
           args+=(--no-pub)
-          flutter build "${args[@]}"
+
+          log "Start flutter iOS release build"
+          log "Command: flutter --verbose build ${args[*]}"
+          log "Heartbeat prints the latest 80 build log lines every 60 seconds"
+
+          heartbeat() {
+            while true; do
+              sleep 60
+              log "Still building; latest build-ios.log lines follow"
+              tail -n 80 build-ios.log 2>/dev/null || true
+            done
+          }
+
+          heartbeat &
+          heartbeat_pid=$!
+          trap 'kill "$heartbeat_pid" 2>/dev/null || true' EXIT
+
+          set +e
+          flutter --verbose build "${args[@]}" 2>&1 | tee build-ios.log
+          build_status=${PIPESTATUS[0]}
+          set -e
+
+          kill "$heartbeat_pid" 2>/dev/null || true
+
+          log "Flutter build exit code: $build_status"
+          log "Recent important build markers"
+          grep -nE 'Running pod install|Xcode build|xcodebuild|PhaseScriptExecution|CompileSwift|CompileC|Ld |LinkStoryboards|Thin Binary|CodeSign|note:|warning:|error:' build-ios.log | tail -n 300 || true
+
+          exit "$build_status"
+
+      - name: Upload iOS build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs
+          path: |
+            build-ios.log
+            ios/Podfile.lock
+            ios/Pods/Manifest.lock
+          retention-days: 7
 
       - name: Ad-hoc sign app bundle
         shell: bash
