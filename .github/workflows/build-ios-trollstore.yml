@@ -182,10 +182,13 @@ jobs:
           if [ -n "${{ inputs.build_number }}" ]; then
             args+=(--build-number "${{ inputs.build_number }}")
           fi
-          args+=(--no-pub)
+          args+=(--no-pub --config-only)
 
-          log "Start flutter iOS release build"
-          log "Command: flutter --verbose build ${args[*]}"
+          log "Generate Flutter iOS build configuration only"
+          log "Command: flutter build ${args[*]}"
+          flutter build "${args[@]}" 2>&1 | tee flutter-config.log
+
+          log "Start direct Xcode release build"
           log "Console shows concise build stages; full verbose log is uploaded as artifact"
 
           cat > /tmp/filter_ios_build_log.awk <<'AWK'
@@ -211,14 +214,42 @@ jobs:
           heartbeat_pid=$!
           trap 'kill "$heartbeat_pid" 2>/dev/null || true' EXIT
 
+          log "Xcode build command will fail fast if Swift Package resolution is required"
+          log "Command: xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release -sdk iphoneos -destination generic/platform=iOS -disableAutomaticPackageResolution build"
+
+          cd ios
+
           set +e
-          flutter --verbose build "${args[@]}" 2>&1 | tee build-ios.raw.log | awk -f /tmp/filter_ios_build_log.awk | tee build-ios.log
+          NSUnbufferedIO=YES xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination generic/platform=iOS \
+            -derivedDataPath ../build/ios/DerivedData \
+            -clonedSourcePackagesDirPath ../build/ios/SourcePackages \
+            -resultBundlePath ../build/ios/temporary_xcresult_bundle \
+            -resultBundleVersion 3 \
+            -disableAutomaticPackageResolution \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            VERBOSE_SCRIPT_LOGGING=YES \
+            BUILD_DIR="$(cd .. && pwd)/build/ios" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_IDENTITY="" \
+            FLUTTER_SUPPRESS_ANALYTICS=true \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            build \
+            2>&1 | tee ../build-ios.raw.log | awk -f /tmp/filter_ios_build_log.awk | tee ../build-ios.log
           build_status=${PIPESTATUS[0]}
           set -e
 
+          cd ..
+
           kill "$heartbeat_pid" 2>/dev/null || true
 
-          log "Flutter build exit code: $build_status"
+          log "Xcode build exit code: $build_status"
           log "Recent important build markers"
           grep -nE 'Running pod install|Xcode build|xcodebuild|PhaseScriptExecution|CompileSwift|CompileC|Ld |LinkStoryboards|Thin Binary|CodeSign|note:|warning:|error:' build-ios.raw.log | tail -n 300 || true
 
@@ -230,6 +261,7 @@ jobs:
         with:
           name: ios-build-logs
           path: |
+            flutter-config.log
             build-ios.log
             build-ios.raw.log
             ios/Podfile.lock
