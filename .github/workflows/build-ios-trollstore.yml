@@ -65,6 +65,23 @@ jobs:
       - name: Precache iOS artifacts
         run: flutter precache --ios
 
+      - name: Use FFmpeg stub for iOS build
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('pubspec.yaml')
+          text = path.read_text(encoding='utf-8')
+          old = '  ffmpeg_kit_extended_flutter: ^0.5.7\n'
+          new = '  ffmpeg_kit_extended_flutter:\n    path: tools/ios_stubs/ffmpeg_kit_extended_flutter\n'
+          if old not in text:
+              raise SystemExit('ffmpeg_kit_extended_flutter dependency line was not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          grep -n -A2 'ffmpeg_kit_extended_flutter' pubspec.yaml
+
       - name: Install Flutter dependencies
         shell: bash
         run: |

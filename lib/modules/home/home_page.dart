@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:move_to_desktop/move_to_desktop.dart';
@@ -74,7 +75,9 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
   }
 
   void _syncInitialIndex() {
-    final activeIds = SettingsService.to.app.savedMenuIds.v;
+    final activeIds = SettingsService.to.app.savedMenuIds.v.where((id) {
+      return !(defaultTargetPlatform == TargetPlatform.iOS && id == HomeMenu.record.id);
+    }).toList();
     if (activeIds.isNotEmpty) {
       final firstMenu = HomeMenu.fromId(activeIds.first);
       if (firstMenu != null) {
@@ -147,14 +150,15 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
 
           return Obx(() {
             final activeMenuIds = List<String>.from(SettingsService.to.app.savedMenuIds.v);
-            if (isTablet) {
+            if (isTablet || defaultTargetPlatform == TargetPlatform.iOS) {
               activeMenuIds.remove(HomeMenu.record.id);
             }
             if (activeMenuIds.isEmpty) return const Scaffold();
 
             int adjustedIndex = _selectedIndex;
             if (adjustedIndex >= HomeMenu.values.length ||
-                (isTablet && HomeMenu.values[adjustedIndex] == HomeMenu.record)) {
+                ((isTablet || defaultTargetPlatform == TargetPlatform.iOS) &&
+                    HomeMenu.values[adjustedIndex] == HomeMenu.record)) {
               final fallbackMenu = HomeMenu.fromId(activeMenuIds.first);
               if (fallbackMenu != null) {
                 adjustedIndex = fallbackMenu.index;

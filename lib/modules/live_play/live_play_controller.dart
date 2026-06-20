@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'dart:developer';
+import 'package:flutter/foundation.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/core/site/huya_site.dart';
 import 'widgets/video_player/video_controller.dart';
@@ -27,7 +28,11 @@ class LivePlayController extends StateController with GetSingleTickerProviderSta
   final String site;
   final LiveRoom room;
 
-  final RecorderController recorderController = Get.find<RecorderController>();
+  final RecorderController? recorderController = !kIsWeb &&
+          defaultTargetPlatform != TargetPlatform.iOS &&
+          Get.isRegistered<RecorderController>()
+      ? Get.find<RecorderController>()
+      : null;
   final StopWatchTimer _stopWatchTimer = StopWatchTimer(mode: StopWatchMode.countDown);
 
   late Site currentSite;

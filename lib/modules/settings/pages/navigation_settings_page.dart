@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/consts/app_consts.dart';
@@ -10,7 +11,12 @@ class NavigationSettingsPage extends StatelessWidget {
     final theme = Theme.of(context);
 
     // 1. 定义所有菜单（固定不变）
-    final allMenus = [HomeMenu.favorites, HomeMenu.popular, HomeMenu.areas, HomeMenu.record];
+    final allMenus = [
+      HomeMenu.favorites,
+      HomeMenu.popular,
+      HomeMenu.areas,
+      if (defaultTargetPlatform != TargetPlatform.iOS) HomeMenu.record,
+    ];
 
     return Scaffold(
       appBar: AppBar(title: Text(i18n("navigation_display_settings"))),

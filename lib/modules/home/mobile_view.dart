@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/consts/app_consts.dart';
@@ -25,6 +26,9 @@ class HomeMobileView extends StatelessWidget {
         final activeMenuIds = SettingsService.to.app.savedMenuIds.v;
         for (String id in activeMenuIds) {
           final menu = HomeMenu.fromId(id);
+          if (defaultTargetPlatform == TargetPlatform.iOS && menu == HomeMenu.record) {
+            continue;
+          }
           if (menu != null) {
             virtualToRealMap.add(menu.index);
             switch (menu) {

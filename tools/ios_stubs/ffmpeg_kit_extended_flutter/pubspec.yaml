@@ -1,0 +1,7 @@
+﻿name: ffmpeg_kit_extended_flutter
+description: iOS TrollStore build stub for PureLive when recording/transcoding is disabled.
+version: 0.5.7
+publish_to: none
+
+environment:
+  sdk: ^3.10.4

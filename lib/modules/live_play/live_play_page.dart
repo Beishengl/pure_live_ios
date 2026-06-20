@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'widgets/index.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
@@ -146,7 +147,11 @@ class LivePlayPage extends GetView<LivePlayController> {
           Obx(() {
             final room = controller.detail.value;
             if (room == null) return const SizedBox.shrink();
-            final task = controller.recorderController.tasks.firstWhereOrNull(
+            final recorderController = controller.recorderController;
+            if (defaultTargetPlatform == TargetPlatform.iOS || recorderController == null) {
+              return const SizedBox.shrink();
+            }
+            final task = recorderController.tasks.firstWhereOrNull(
               (t) => t.platform == room.platform && t.roomId == room.roomId,
             );
             final bool exists = task != null;
@@ -202,7 +207,7 @@ class LivePlayPage extends GetView<LivePlayController> {
                 ),
                 onPressed: () async {
                   if (!exists) {
-                    await controller.recorderController.addTask(room: room);
+                    await recorderController.addTask(room: room);
                     ToastUtil.show(i18n("record_task_added"));
                     return;
                   }
@@ -261,13 +266,13 @@ class LivePlayPage extends GetView<LivePlayController> {
                       Get.toNamed(RoutePath.kRecordPage);
                       break;
                     case "start":
-                      controller.recorderController.forceStartTask(task);
+                      if (task != null) recorderController.forceStartTask(task);
                       break;
                     case "stop":
-                      controller.recorderController.stopTask(task);
+                      if (task != null) recorderController.stopTask(task);
                       break;
                     case "delete":
-                      controller.recorderController.unRecorder(task);
+                      if (task != null) recorderController.unRecorder(task);
                       break;
                   }
                 },

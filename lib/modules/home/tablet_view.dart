@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/common/consts/app_consts.dart';
@@ -102,13 +103,14 @@ class HomeTabletView extends StatelessWidget {
                             icon: const Icon(CustomIcons.search),
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
-                          child: IconButton(
-                            onPressed: () => Get.toNamed(RoutePath.kRecordPage),
-                            icon: const Icon(Remix.download_2_line),
+                        if (defaultTargetPlatform != TargetPlatform.iOS)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 0, bottom: 12, left: 12, right: 12),
+                            child: IconButton(
+                              onPressed: () => Get.toNamed(RoutePath.kRecordPage),
+                              icon: const Icon(Remix.download_2_line),
+                            ),
                           ),
-                        ),
                       ],
                     ),
                     destinations: destinations,

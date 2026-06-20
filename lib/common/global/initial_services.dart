@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:pure_live/common/index.dart';
 import 'package:pure_live/plugins/db_service.dart';
 import 'package:pure_live/modules/auth/auth_controller.dart';
@@ -45,11 +46,13 @@ class InitialServices {
   static void _initHeavyServicesInBackground() {
     Future.delayed(const Duration(seconds: 3), () {
       try {
-        FFmpegKitExtended.initialize();
         Get.put(CacheService(), permanent: true);
-        Get.put(RecordSettingsController(), permanent: true);
-        Get.put(RecorderController(), permanent: true);
-        Get.lazyPut(() => StreamResolverService(), fenix: true);
+        if (!kIsWeb && defaultTargetPlatform != TargetPlatform.iOS) {
+          FFmpegKitExtended.initialize();
+          Get.put(RecordSettingsController(), permanent: true);
+          Get.put(RecorderController(), permanent: true);
+          Get.lazyPut(() => StreamResolverService(), fenix: true);
+        }
         Get.put(AuthController(), permanent: true);
       } catch (_) {}
     });
