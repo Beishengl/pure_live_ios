@@ -338,7 +338,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //; s/[`"'"']//g; s/+/-/')
+          VERSION=$(awk '/^version:/ { print $2; exit }' pubspec.yaml | tr '+' '-')
           IPA_NAME="PureLive-${VERSION}-iOS14.3-TrollStore.ipa"
 
           rm -rf Payload "$IPA_NAME"
