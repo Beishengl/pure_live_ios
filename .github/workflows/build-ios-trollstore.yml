@@ -175,7 +175,7 @@ jobs:
           set -euo pipefail
           log() { echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $*"; }
 
-          args=(ios --release --no-codesign)
+          args=(ios --release --no-codesign --no-tree-shake-icons)
           if [ -n "${{ inputs.build_name }}" ]; then
             args+=(--build-name "${{ inputs.build_name }}")
           fi
@@ -203,8 +203,10 @@ jobs:
           heartbeat() {
             while true; do
               sleep 60
-              log "Still building; current Xcode-related processes follow"
-              ps -axo pid,ppid,etime,%cpu,%mem,command | awk 'NR == 1 || /xcodebuild|XCBBuildService|swift-frontend|clang|ld|ibtool|actool|codesign|dsymutil|flutter|dart/ { print }' | head -n 80 || true
+              log "Still building; top CPU processes follow"
+              ps -axo pid,ppid,etime,%cpu,%mem,command -r | head -n 40 || true
+              log "Still building; Flutter/Xcode-related processes follow"
+              ps -axo pid,ppid,etime,%cpu,%mem,command | awk 'NR == 1 || /xcodebuild|XCBBuildService|swift-frontend|clang|ld|ibtool|actool|codesign|dsymutil|flutter|dart|gen_snapshot|font-subset|frontend_server|kernel_snapshot|lipo|strip|rsync/ { print }' | head -n 120 || true
               log "Recent concise build stage lines follow"
               tail -n 80 build-ios.log 2>/dev/null || true
             done
@@ -251,7 +253,7 @@ jobs:
 
           log "Xcode build exit code: $build_status"
           log "Recent important build markers"
-          grep -nE 'Running pod install|Xcode build|xcodebuild|PhaseScriptExecution|CompileSwift|CompileC|Ld |LinkStoryboards|Thin Binary|CodeSign|note:|warning:|error:' build-ios.raw.log | tail -n 300 || true
+          grep -nE 'Running pod install|Xcode build|xcodebuild|PhaseScriptExecution|CompileSwift|CompileC|Ld |LinkStoryboards|Thin Binary|CodeSign|assemble|gen_snapshot|font-subset|kernel_snapshot|note:|warning:|error:' build-ios.raw.log | tail -n 300 || true
 
           exit "$build_status"
 
