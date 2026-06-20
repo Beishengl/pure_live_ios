@@ -291,12 +291,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APP_PATH="build/ios/iphoneos/Runner.app"
+          APP_PATH=""
 
-          if [ ! -d "$APP_PATH" ]; then
-            echo "Runner.app not found at $APP_PATH"
+          for candidate in \
+            "build/ios/iphoneos/Runner.app" \
+            "build/ios/Release-iphoneos/Runner.app" \
+            "build/ios/DerivedData/Build/Products/Release-iphoneos/Runner.app"; do
+            if [ -d "$candidate" ]; then
+              APP_PATH="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$APP_PATH" ]; then
+            APP_PATH=$(find build/ios -type d -name Runner.app -print -quit 2>/dev/null || true)
+          fi
+
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+            echo "Runner.app was not found under build/ios"
+            find build/ios -maxdepth 4 -type d -name '*.app' -print 2>/dev/null || true
             exit 1
           fi
+
+          echo "Using app bundle at $APP_PATH"
+          echo "RUNNER_APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
 
           if [ -d "$APP_PATH/Frameworks" ]; then
             find "$APP_PATH/Frameworks" -type f \( -perm -111 -o -name '*.dylib' \) -print0 | while IFS= read -r -d '' binary; do
@@ -325,7 +343,7 @@ jobs:
 
           rm -rf Payload "$IPA_NAME"
           mkdir Payload
-          cp -R build/ios/iphoneos/Runner.app Payload/
+          cp -R "$RUNNER_APP_PATH" Payload/
           ditto -c -k --keepParent Payload "$IPA_NAME"
 
           echo "IPA_NAME=$IPA_NAME" >> "$GITHUB_ENV"
