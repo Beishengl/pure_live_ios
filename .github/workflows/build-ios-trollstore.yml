@@ -186,12 +186,23 @@ jobs:
 
           log "Start flutter iOS release build"
           log "Command: flutter --verbose build ${args[*]}"
-          log "Heartbeat prints the latest 80 build log lines every 60 seconds"
+          log "Console shows concise build stages; full verbose log is uploaded as artifact"
+
+          cat > /tmp/filter_ios_build_log.awk <<'AWK'
+          function keep() { print; fflush(); }
+          /<!DOCTYPE plist|<plist version=|<\/plist>|<dict>|<\/dict>|<key>|<string>|<array>|<\/array>/ { next }
+          /Running pod install|Running Xcode build|xcrun xcodebuild|Xcode build done|Failed to build iOS app|Building .* for device|Warning:|Error:/ { keep(); next }
+          /PhaseScriptExecution|CompileSwift|SwiftCompile|CompileC|Ld |Libtool|ProcessInfoPlistFile|CopySwiftLibs|CompileAssetCatalog|Actool|Ibtool|Thin Binary|CodeSign|GenerateDSYMFile|Validate / { keep(); next }
+          /(^|[[:space:]])(error:|warning:|note:)/ { keep(); next }
+          AWK
+          sed -i '' 's/^          //' /tmp/filter_ios_build_log.awk
 
           heartbeat() {
             while true; do
               sleep 60
-              log "Still building; latest build-ios.log lines follow"
+              log "Still building; current Xcode-related processes follow"
+              ps -axo pid,ppid,etime,%cpu,%mem,command | awk 'NR == 1 || /xcodebuild|XCBBuildService|swift-frontend|clang|ld|ibtool|actool|codesign|dsymutil|flutter|dart/ { print }' | head -n 80 || true
+              log "Recent concise build stage lines follow"
               tail -n 80 build-ios.log 2>/dev/null || true
             done
           }
@@ -201,7 +212,7 @@ jobs:
           trap 'kill "$heartbeat_pid" 2>/dev/null || true' EXIT
 
           set +e
-          flutter --verbose build "${args[@]}" 2>&1 | tee build-ios.log
+          flutter --verbose build "${args[@]}" 2>&1 | tee build-ios.raw.log | awk -f /tmp/filter_ios_build_log.awk | tee build-ios.log
           build_status=${PIPESTATUS[0]}
           set -e
 
@@ -209,7 +220,7 @@ jobs:
 
           log "Flutter build exit code: $build_status"
           log "Recent important build markers"
-          grep -nE 'Running pod install|Xcode build|xcodebuild|PhaseScriptExecution|CompileSwift|CompileC|Ld |LinkStoryboards|Thin Binary|CodeSign|note:|warning:|error:' build-ios.log | tail -n 300 || true
+          grep -nE 'Running pod install|Xcode build|xcodebuild|PhaseScriptExecution|CompileSwift|CompileC|Ld |LinkStoryboards|Thin Binary|CodeSign|note:|warning:|error:' build-ios.raw.log | tail -n 300 || true
 
           exit "$build_status"
 
@@ -220,6 +231,7 @@ jobs:
           name: ios-build-logs
           path: |
             build-ios.log
+            build-ios.raw.log
             ios/Podfile.lock
             ios/Pods/Manifest.lock
           retention-days: 7
